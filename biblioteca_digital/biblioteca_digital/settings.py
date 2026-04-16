@@ -15,7 +15,7 @@ SECRET_KEY = 'django-insecure-dsggh6vm)=+@2xysxzs95jy**d4ru=p1%q26wc-^kfqx&!s3x7
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['.vercel.app', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['.vercel.app', 'biblioteca210.com.ar', 'www.biblioteca210.com.ar', 'localhost', '127.0.0.1']
 
 # Application definition
 INSTALLED_APPS = [
@@ -123,11 +123,14 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/libros/'
 LOGOUT_REDIRECT_URL = '/login/'
 
-# Configuración de email
+# Configuración de email para recuperacion de contraseña
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'bibliois210@gmail.com'
-EMAIL_HOST_PASSWORD = 'mgta vloi jlnw skdo'
-DEFAULT_FROM_EMAIL = 'Biblioteca ISFD 210 <bibliois210@gmail.com>'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = 'Biblioteca ISFD 210 <tu-correo@gmail.com>'
+
+
