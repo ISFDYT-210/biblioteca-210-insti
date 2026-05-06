@@ -389,13 +389,17 @@ def cargar_csv_lote(request):
                 for idx, row in enumerate(registros, start=1):
                     try:
                         tipo_material = row.get('tipo_material', '').strip().lower()
-                        
+
+                        if not tipo_material:
+                            errores.append(f"Registro {idx}: Falta tipo_material o el CSV no se parseó correctamente")
+                            continue
+
                         if tipo_material == 'libro':
                             titulo = row.get('titulo', '').strip()
                             if not titulo:
                                 errores.append(f"Registro {idx}: Falta título")
                                 continue
-                            
+
                             def safe_int(value, default=1):
                                 if value is None or value == '':
                                     return default
@@ -403,7 +407,7 @@ def cargar_csv_lote(request):
                                     return int(str(value).strip())
                                 except (ValueError, TypeError):
                                     return default
-                            
+
                             libro = Libro.objects.create(
                                 estado='Disponible',
                                 motivo_baja=row.get('motivo_baja', '').strip() or None,
@@ -423,7 +427,9 @@ def cargar_csv_lote(request):
                                 img=row.get('img', '').strip() or None
                             )
                             creados += 1
-                        
+                        else:
+                            errores.append(f"Registro {idx}: Tipo de material no soportado: {tipo_material}")
+
                         # Agregar otros tipos (mapa, multimedia, etc.) igual que antes
                         
                     except Exception as e:

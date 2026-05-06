@@ -544,19 +544,26 @@
         });
 
         function parseCSV(text) {
-            const lines = text.trim().split('\n');
+            const lines = text.trim().split(/\r?\n/);
             if (lines.length < 2) return [];
-            
-            // Parser mejorado que maneja comillas
-            function parseLine(line) {
+
+            const detectDelimiter = (headerLine) => {
+                const semicolons = (headerLine.match(/;/g) || []).length;
+                const commas = (headerLine.match(/,/g) || []).length;
+                return semicolons > commas ? ';' : ',';
+            };
+
+            const delimiter = detectDelimiter(lines[0]);
+
+            function parseLine(line, delimiter) {
                 const result = [];
                 let current = '';
                 let inQuotes = false;
-                
+
                 for (let i = 0; i < line.length; i++) {
                     const char = line[i];
                     const nextChar = line[i + 1];
-                    
+
                     if (char === '"') {
                         if (inQuotes && nextChar === '"') {
                             current += '"';
@@ -564,34 +571,34 @@
                         } else {
                             inQuotes = !inQuotes;
                         }
-                    } else if (char === ',' && !inQuotes) {
+                    } else if (char === delimiter && !inQuotes) {
                         result.push(current.trim());
                         current = '';
                     } else {
                         current += char;
                     }
                 }
-                
+
                 result.push(current.trim());
                 return result;
             }
-            
-            const headers = parseLine(lines[0]).map(h => h.trim());
+
+            const headers = parseLine(lines[0], delimiter).map(h => h.trim());
             const rows = [];
-            
+
             for (let i = 1; i < lines.length; i++) {
                 if (!lines[i].trim()) continue;
-                
-                const values = parseLine(lines[i]);
+
+                const values = parseLine(lines[i], delimiter);
                 const row = {};
-                
+
                 headers.forEach((header, index) => {
                     row[header] = values[index] ? values[index].trim() : '';
                 });
-                
+
                 rows.push(row);
             }
-            
+
             return rows;
         }
         
