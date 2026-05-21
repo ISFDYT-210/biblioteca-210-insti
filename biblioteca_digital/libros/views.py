@@ -1,4 +1,5 @@
 import json
+import unicodedata
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 from collections import Counter
@@ -7,6 +8,35 @@ from .forms import LibroForm, MapaForm, MultimediaForm, NotebookForm, ProyectorF
 from django.core.mail import send_mail
 from django.conf import settings
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db import connection
+from django.db.models import Func, TextField, Q
+
+
+class _Unaccent(Func):
+    """Llama a la función UNACCENT() de PostgreSQL."""
+    function = 'UNACCENT'
+    output_field = TextField()
+
+
+def _normalize(s):
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+
+
+def search_unaccent(queryset, fields, query):
+    """Filtra un queryset buscando query en los campos indicados, sin distinguir tildes."""
+    if connection.vendor == 'postgresql':
+        normalized = _normalize(query)
+        annotations = {f'{f}_ua': _Unaccent(f) for f in fields}
+        q = Q()
+        for f in fields:
+            q |= Q(**{f'{f}_ua__icontains': normalized})
+        return queryset.annotate(**annotations).filter(q)
+    else:
+        normalized = _normalize(query)
+        q = Q()
+        for f in fields:
+            q |= Q(**{f'{f}__icontains': normalized})
+        return queryset.filter(q)
 
 import csv
 import io  # Agregar esta línea
@@ -134,36 +164,34 @@ def success_view(request):
 @login_required(login_url='login')
 def buscar_libros(request):
     query = request.GET.get('q', '')
-    libros = Libro.objects.filter(
-        Q(titulo__icontains=query) | 
-        Q(autor__icontains=query) | 
-        Q(resumen__icontains=query),
-        estado='Disponible'
+    libros = search_unaccent(
+        Libro.objects.filter(estado='Disponible'),
+        ['titulo', 'autor', 'resumen'],
+        query
     ).values(
-        'id_libro',  # IMPORTANTE: Asegúrate de que este campo esté incluido
+        'id_libro',
         'num_inventario',
-        'titulo', 
-        'autor', 
-        'editorial', 
-        'clasificacion_cdu', 
-        'siglas_autor_titulo', 
-        'sede', 
-        'disponibilidad', 
+        'titulo',
+        'autor',
+        'editorial',
+        'clasificacion_cdu',
+        'siglas_autor_titulo',
+        'sede',
+        'disponibilidad',
         'img'
     )
 
-    # Para depuración, puedes imprimir los datos
     print("Datos de libros:", list(libros))
-    
+
     return JsonResponse(list(libros), safe=False)
 
 # Buscar de mapas
 def buscar_mapas(request):
     query = request.GET.get('q', '')
-    mapas = Mapas.objects.filter(
-        Q(tipo__icontains=query) | 
-        Q(descripcion__icontains=query),
-        estado='Disponible'
+    mapas = search_unaccent(
+        Mapas.objects.filter(estado='Disponible'),
+        ['tipo', 'descripcion'],
+        query
     ).values('id_mapa', 'tipo', 'descripcion', 'num_ejemplar')
 
     return JsonResponse(list(mapas), safe=False)
@@ -171,13 +199,13 @@ def buscar_mapas(request):
 # Buscador de multimedia
 def buscar_multimedia(request):
     query = request.GET.get('q', '')
-    multimedia = Multimedia.objects.filter(
-        Q(materia__icontains=query) | 
-        Q(contenido__icontains=query),
-        estado='Disponible'
+    multimedia = search_unaccent(
+        Multimedia.objects.filter(estado='Disponible'),
+        ['materia', 'contenido'],
+        query
     ).values('id_multi', 'materia', 'contenido', 'num_ejemplar')
 
-    return JsonResponse(list(multimedia), safe=False) 
+    return JsonResponse(list(multimedia), safe=False)
 
 # Buscador de notebooks
 # Código viejo
@@ -194,7 +222,11 @@ def buscar_multimedia(request):
 def buscar_notebooks(request):
     query = request.GET.get('q', '')
     if query:
-        notebooks = Notebook.objects.filter(marca_not__icontains=query, estado='Disponible') | Notebook.objects.filter(modelo_not__icontains=query, estado='Disponible')
+        notebooks = search_unaccent(
+            Notebook.objects.filter(estado='Disponible'),
+            ['marca_not', 'modelo_not'],
+            query
+        )
     else:
         notebooks = Notebook.objects.filter(estado='Disponible')
 
@@ -205,9 +237,10 @@ def buscar_notebooks(request):
 
 def buscar_proyectores(request):
     query = request.GET.get('q', '')
-    proyectores = Proyector.objects.filter(
-        Q(marca_pro__icontains=query) | Q(modelo_pro__icontains=query),
-        estado='Disponible'  # Asegúrate de que esto coincide con el campo en tu modelo
+    proyectores = search_unaccent(
+        Proyector.objects.filter(estado='Disponible'),
+        ['marca_pro', 'modelo_pro'],
+        query
     ).values('id_proyector', 'marca_pro', 'modelo_pro', 'num_ejemplar')
 
     return JsonResponse(list(proyectores), safe=False)
@@ -215,9 +248,10 @@ def buscar_proyectores(request):
 # Buscador de varios
 def buscar_varios(request):
     query = request.GET.get('q', '')
-    varios = Varios.objects.filter(
-        Q(tipo__icontains=query),
-        estado='Disponible' 
+    varios = search_unaccent(
+        Varios.objects.filter(estado='Disponible'),
+        ['tipo'],
+        query
     ).values('id_varios', 'tipo', 'num_ejemplar')
 
     return JsonResponse(list(varios), safe=False)
@@ -1762,11 +1796,10 @@ def gestion_usuarios(request):
 def buscar_usuarios(request):
     """Vista AJAX para búsqueda de usuarios"""
     query = request.GET.get('q', '')
-    usuarios = Usuario.objects.filter(
-        Q(dni__icontains=query) |
-        Q(nombre__icontains=query) |
-        Q(apellido__icontains=query) |
-        Q(email__icontains=query)
+    usuarios = search_unaccent(
+        Usuario.objects.all(),
+        ['dni', 'nombre', 'apellido', 'email'],
+        query
     ).values(
         'id',
         'dni',
