@@ -32,11 +32,12 @@ def search_unaccent(queryset, fields, query):
             q |= Q(**{f'{f}_ua__icontains': normalized})
         return queryset.annotate(**annotations).filter(q)
     else:
-        normalized = _normalize(query)
-        q = Q()
-        for f in fields:
-            q |= Q(**{f'{f}__icontains': normalized})
-        return queryset.filter(q)
+        normalized = _normalize(query).lower()
+        ids = [
+            obj.pk for obj in queryset
+            if any(normalized in _normalize(str(getattr(obj, f, '') or '')).lower() for f in fields)
+        ]
+        return queryset.filter(pk__in=ids)
 
 import csv
 import io  # Agregar esta línea
