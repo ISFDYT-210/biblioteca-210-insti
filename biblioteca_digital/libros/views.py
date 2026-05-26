@@ -25,19 +25,39 @@ def _normalize(s):
 def search_unaccent(queryset, fields, query):
     """Filtra un queryset buscando query en los campos indicados, sin distinguir tildes."""
     if connection.vendor == 'postgresql':
-        normalized = _normalize(query)
-        annotations = {f'{f}_ua': _Unaccent(f) for f in fields}
-        q = Q()
-        for f in fields:
-            q |= Q(**{f'{f}_ua__icontains': normalized})
-        return queryset.annotate(**annotations).filter(q)
-    else:
-        normalized = _normalize(query).lower()
-        ids = [
-            obj.pk for obj in queryset
-            if any(normalized in _normalize(str(getattr(obj, f, '') or '')).lower() for f in fields)
-        ]
-        return queryset.filter(pk__in=ids)
+        try:
+            from django.db import transaction
+            with transaction.atomic():
+                normalized = _normalize(query)
+                annotations = {f'{f}_ua': _Unaccent(f) for f in fields}
+                q = Q()
+                for f in fields:
+                    q |= Q(**{f'{f}_ua__icontains': normalized})
+                # Forzamos la evaluación rápida de la query para verificar
+                # si la extensión unaccent está instalada en PostgreSQL.
+                result = queryset.annotate(**annotations).filter(q)
+                list(result[:1])
+                return result
+        except Exception as e:
+            logger.warning(f"Error al usar UNACCENT en PostgreSQL (posiblemente la extensión no está instalada): {e}")
+            
+        # Fallback para PostgreSQL si falla la extensión: usar icontains normal a nivel de DB
+        try:
+            q = Q()
+            for f in fields:
+                q |= Q(**{f'{f}__icontains': query})
+            return queryset.filter(q)
+        except Exception as e:
+            logger.error(f"Error en fallback icontains en PostgreSQL: {e}")
+
+    # Comportamiento por defecto para SQLite (desarrollo local) u otras DBs:
+    # Búsqueda en memoria normalizando strings para simular la búsqueda sin acentos.
+    normalized = _normalize(query).lower()
+    ids = [
+        obj.pk for obj in queryset
+        if any(normalized in _normalize(str(getattr(obj, f, '') or '')).lower() for f in fields)
+    ]
+    return queryset.filter(pk__in=ids)
 
 import csv
 import io  # Agregar esta línea
