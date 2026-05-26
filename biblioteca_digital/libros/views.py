@@ -164,12 +164,19 @@ def success_view(request):
 
 @login_required(login_url='login')
 def buscar_libros(request):
-    query = request.GET.get('q', '')
-    libros = search_unaccent(
-        Libro.objects.filter(estado='Disponible'),
-        ['titulo', 'autor', 'resumen'],
-        query
-    ).values(
+    query = request.GET.get('q', '').strip()
+    clean_query = query.strip("'\"")
+    
+    if clean_query:
+        libros = search_unaccent(
+            Libro.objects.filter(estado='Disponible'),
+            ['titulo', 'autor', 'resumen', 'editorial'],
+            clean_query
+        )
+    else:
+        libros = Libro.objects.filter(estado='Disponible')
+
+    libros_values = libros.values(
         'id_libro',
         'num_inventario',
         'titulo',
@@ -182,31 +189,42 @@ def buscar_libros(request):
         'img'
     )
 
-    print("Datos de libros:", list(libros))
+    print("Datos de libros:", list(libros_values))
 
-    return JsonResponse(list(libros), safe=False)
+    return JsonResponse(list(libros_values), safe=False)
+
 
 # Buscar de mapas
 def buscar_mapas(request):
-    query = request.GET.get('q', '')
-    mapas = search_unaccent(
-        Mapas.objects.filter(estado='Disponible'),
-        ['tipo', 'descripcion'],
-        query
-    ).values('id_mapa', 'tipo', 'descripcion', 'num_ejemplar')
-
-    return JsonResponse(list(mapas), safe=False)
+    query = request.GET.get('q', '').strip()
+    clean_query = query.strip("'\"")
+    if clean_query:
+        mapas = search_unaccent(
+            Mapas.objects.filter(estado='Disponible'),
+            ['tipo', 'descripcion'],
+            clean_query
+        )
+    else:
+        mapas = Mapas.objects.filter(estado='Disponible')
+        
+    mapas_values = mapas.values('id_mapa', 'tipo', 'descripcion', 'num_ejemplar')
+    return JsonResponse(list(mapas_values), safe=False)
 
 # Buscador de multimedia
 def buscar_multimedia(request):
-    query = request.GET.get('q', '')
-    multimedia = search_unaccent(
-        Multimedia.objects.filter(estado='Disponible'),
-        ['materia', 'contenido'],
-        query
-    ).values('id_multi', 'materia', 'contenido', 'num_ejemplar')
-
-    return JsonResponse(list(multimedia), safe=False)
+    query = request.GET.get('q', '').strip()
+    clean_query = query.strip("'\"")
+    if clean_query:
+        multimedia = search_unaccent(
+            Multimedia.objects.filter(estado='Disponible'),
+            ['materia', 'contenido'],
+            clean_query
+        )
+    else:
+        multimedia = Multimedia.objects.filter(estado='Disponible')
+        
+    multimedia_values = multimedia.values('id_multi', 'materia', 'contenido', 'num_ejemplar')
+    return JsonResponse(list(multimedia_values), safe=False)
 
 # Buscador de notebooks
 # Código viejo
@@ -221,12 +239,13 @@ def buscar_multimedia(request):
 
 # Código modificado (funcionando)
 def buscar_notebooks(request):
-    query = request.GET.get('q', '')
-    if query:
+    query = request.GET.get('q', '').strip()
+    clean_query = query.strip("'\"")
+    if clean_query:
         notebooks = search_unaccent(
             Notebook.objects.filter(estado='Disponible'),
             ['marca_not', 'modelo_not'],
-            query
+            clean_query
         )
     else:
         notebooks = Notebook.objects.filter(estado='Disponible')
@@ -235,27 +254,36 @@ def buscar_notebooks(request):
     return JsonResponse(data, safe=False)
 
 # Buscador de proyectores
-
 def buscar_proyectores(request):
-    query = request.GET.get('q', '')
-    proyectores = search_unaccent(
-        Proyector.objects.filter(estado='Disponible'),
-        ['marca_pro', 'modelo_pro'],
-        query
-    ).values('id_proyector', 'marca_pro', 'modelo_pro', 'num_ejemplar')
-
-    return JsonResponse(list(proyectores), safe=False)
+    query = request.GET.get('q', '').strip()
+    clean_query = query.strip("'\"")
+    if clean_query:
+        proyectores = search_unaccent(
+            Proyector.objects.filter(estado='Disponible'),
+            ['marca_pro', 'modelo_pro'],
+            clean_query
+        )
+    else:
+        proyectores = Proyector.objects.filter(estado='Disponible')
+        
+    proyectores_values = proyectores.values('id_proyector', 'marca_pro', 'modelo_pro', 'num_ejemplar')
+    return JsonResponse(list(proyectores_values), safe=False)
 
 # Buscador de varios
 def buscar_varios(request):
-    query = request.GET.get('q', '')
-    varios = search_unaccent(
-        Varios.objects.filter(estado='Disponible'),
-        ['tipo'],
-        query
-    ).values('id_varios', 'tipo', 'num_ejemplar')
-
-    return JsonResponse(list(varios), safe=False)
+    query = request.GET.get('q', '').strip()
+    clean_query = query.strip("'\"")
+    if clean_query:
+        varios = search_unaccent(
+            Varios.objects.filter(estado='Disponible'),
+            ['tipo'],
+            clean_query
+        )
+    else:
+        varios = Varios.objects.filter(estado='Disponible')
+        
+    varios_values = varios.values('id_varios', 'tipo', 'num_ejemplar')
+    return JsonResponse(list(varios_values), safe=False)
 
 # Borrar libros
 @user_passes_test(es_bibliotecaria, login_url='login')

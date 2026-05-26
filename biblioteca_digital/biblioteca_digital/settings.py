@@ -9,11 +9,10 @@ from django.contrib.messages import constants as messages
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
+
 SECRET_KEY = 'django-insecure-dsggh6vm)=+@2xysxzs95jy**d4ru=p1%q26wc-^kfqx&!s3x7'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['.vercel.app', 'biblioteca210.com.ar', 'www.biblioteca210.com.ar', 'localhost', '127.0.0.1']
 
