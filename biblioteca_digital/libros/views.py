@@ -13,8 +13,9 @@ from django.db.models import Func, TextField, Q
 
 
 class _Unaccent(Func):
-    """Llama a la función UNACCENT() de PostgreSQL."""
-    function = 'UNACCENT'
+    """Llama a la función TRANSLATE de PostgreSQL para remover acentos sin requerir la extensión unaccent."""
+    function = 'TRANSLATE'
+    template = "%(function)s(%(expressions)s, 'áéíóúüñÑÁÉÍÓÚÜàèìòùÀÈÌÒÙâêîôûÂÊÎÔÛäëïöÄËÏÖÿÝ', 'aeiouunNAEIOUUaeiouAEIOUaeiouAEIOUaeioAEIOyY')"
     output_field = TextField()
 
 
@@ -23,40 +24,49 @@ def _normalize(s):
 
 
 def search_unaccent(queryset, fields, query):
-    """Filtra un queryset buscando query en los campos indicados, sin distinguir tildes."""
+    """Filtra un queryset buscando query en los campos indicados, sin distinguir tildes ni mayúsculas/minúsculas y permitiendo múltiples palabras."""
+    normalized_query = _normalize(query)
+    words = [w.strip() for w in normalized_query.split() if w.strip()]
+    if not words:
+        return queryset
+
     if connection.vendor == 'postgresql':
         try:
             from django.db import transaction
             with transaction.atomic():
-                normalized = _normalize(query)
                 annotations = {f'{f}_ua': _Unaccent(f) for f in fields}
                 q = Q()
-                for f in fields:
-                    q |= Q(**{f'{f}_ua__icontains': normalized})
-                # Forzamos la evaluación rápida de la query para verificar
-                # si la extensión unaccent está instalada en PostgreSQL.
+                for word in words:
+                    word_q = Q()
+                    for f in fields:
+                        word_q |= Q(**{f'{f}_ua__icontains': word})
+                    q &= word_q
+                
                 result = queryset.annotate(**annotations).filter(q)
                 list(result[:1])
                 return result
         except Exception as e:
-            logger.warning(f"Error al usar UNACCENT en PostgreSQL (posiblemente la extensión no está instalada): {e}")
+            logger.warning(f"Error al usar TRANSLATE en PostgreSQL: {e}")
             
-        # Fallback para PostgreSQL si falla la extensión: usar icontains normal a nivel de DB
+        # Fallback para PostgreSQL si falla la traducción: usar icontains normal a nivel de DB
         try:
             q = Q()
-            for f in fields:
-                q |= Q(**{f'{f}__icontains': query})
+            for word in words:
+                word_q = Q()
+                for f in fields:
+                    word_q |= Q(**{f'{f}__icontains': word})
+                q &= word_q
             return queryset.filter(q)
         except Exception as e:
             logger.error(f"Error en fallback icontains en PostgreSQL: {e}")
 
     # Comportamiento por defecto para SQLite (desarrollo local) u otras DBs:
     # Búsqueda en memoria normalizando strings para simular la búsqueda sin acentos.
-    normalized = _normalize(query).lower()
-    ids = [
-        obj.pk for obj in queryset
-        if any(normalized in _normalize(str(getattr(obj, f, '') or '')).lower() for f in fields)
-    ]
+    ids = []
+    for obj in queryset:
+        combined_text = " ".join(_normalize(str(getattr(obj, f, '') or '')).lower() for f in fields)
+        if all(word.lower() in combined_text for word in words):
+            ids.append(obj.pk)
     return queryset.filter(pk__in=ids)
 
 import csv
@@ -1844,12 +1854,19 @@ def gestion_usuarios(request):
 @bibliotecaria_required
 def buscar_usuarios(request):
     """Vista AJAX para búsqueda de usuarios"""
-    query = request.GET.get('q', '')
-    usuarios = search_unaccent(
-        Usuario.objects.all(),
-        ['dni', 'nombre', 'apellido', 'email'],
-        query
-    ).values(
+    query = request.GET.get('q', '').strip()
+    clean_query = query.strip("'\"")
+    
+    if clean_query:
+        usuarios = search_unaccent(
+            Usuario.objects.all(),
+            ['dni', 'nombre', 'apellido', 'email'],
+            clean_query
+        )
+    else:
+        usuarios = Usuario.objects.all()
+
+    usuarios_values = usuarios.values(
         'id',
         'dni',
         'nombre',
@@ -1862,7 +1879,7 @@ def buscar_usuarios(request):
     
     # Convertir fecha_registro a string para JSON
     usuarios_list = []
-    for usuario in usuarios:
+    for usuario in usuarios_values:
         usuario['fecha_registro'] = usuario['fecha_registro'].strftime('%d/%m/%Y')
         usuarios_list.append(usuario)
     

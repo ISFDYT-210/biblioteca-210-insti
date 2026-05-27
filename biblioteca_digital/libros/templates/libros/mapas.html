@@ -52,6 +52,11 @@
                     realizarBusqueda(query);
                 }, 300);
             });
+
+            // Evitar el envío automático del formulario al presionar Enter
+            $('#search-form').on('submit', function(e) {
+                e.preventDefault();
+            });
             
             function realizarBusqueda(query) {
                 $('#search-status').text('Buscando...').show();
