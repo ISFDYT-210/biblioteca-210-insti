@@ -525,6 +525,11 @@
             <a href="{% url 'alta_libro' %}" class="btn-carga-manual">Carga Manual</a>
             <a href="{% url 'cargar_csv' %}" class="btn-carga-masiva">Carga Masiva</a>
         </div>
+        <div style="margin-bottom: 20px;">
+            <a href="{% url 'exportar_catalogo_excel' %}" class="btn-carga-manual" style="background-color: #28a745;">
+                &#11015; Exportar a Excel
+            </a>
+        </div>
         {% endif %}
 
         <div style="margin-bottom: 20px;">

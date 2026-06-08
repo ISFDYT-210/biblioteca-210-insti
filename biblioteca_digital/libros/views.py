@@ -203,6 +203,22 @@ def buscar_libros(request):
             ['titulo', 'autor', 'resumen', 'editorial'],
             clean_query
         )
+        # También buscar por número de inventario si la query contiene dígitos
+        digits_only = ''.join(c for c in clean_query if c.isdigit())
+        if digits_only:
+            try:
+                from django.db.models.functions import Cast
+                from django.db.models import CharField as DBCharField
+                libros_num = Libro.objects.filter(estado='Disponible').annotate(
+                    num_inv_str=Cast('num_inventario', output_field=DBCharField())
+                ).filter(num_inv_str__icontains=digits_only)
+                libros = (libros | libros_num).distinct()
+            except Exception:
+                try:
+                    libros_num = Libro.objects.filter(estado='Disponible', num_inventario=int(digits_only))
+                    libros = (libros | libros_num).distinct()
+                except (ValueError, Exception):
+                    pass
     else:
         libros = Libro.objects.filter(estado='Disponible')
 
@@ -2712,8 +2728,74 @@ def exportar_bajas_excel(request):
     except Exception as e:
         messages.error(request, f'Error al exportar registro de bajas: {str(e)}')
         return redirect('registro_de_bajas')
-    
-# Vistas para migraciones de localhost (sqlite) a Postgres estan comentadas porque una vez que se hace no se tiene que volver a hacer. 
+
+
+@user_passes_test(es_bibliotecaria, login_url='login')
+def exportar_catalogo_excel(request):
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Catálogo de Libros"
+
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="004C8C", end_color="004C8C", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+
+        headers = [
+            'Nº Inventario', 'Título', 'Autor', 'Editorial',
+            'Clasificación CDU', 'Siglas', 'Sede', 'Disponibilidad',
+            'Estado', 'Nº Ejemplar', 'Observaciones'
+        ]
+
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+
+        libros = Libro.objects.filter(estado='Disponible').order_by('num_inventario')
+
+        for row, libro in enumerate(libros, 2):
+            ws.cell(row=row, column=1, value=libro.num_inventario)
+            ws.cell(row=row, column=2, value=libro.titulo)
+            ws.cell(row=row, column=3, value=libro.autor)
+            ws.cell(row=row, column=4, value=libro.editorial)
+            ws.cell(row=row, column=5, value=libro.clasificacion_cdu)
+            ws.cell(row=row, column=6, value=libro.siglas_autor_titulo)
+            ws.cell(row=row, column=7, value=libro.sede)
+            ws.cell(row=row, column=8, value=libro.disponibilidad)
+            ws.cell(row=row, column=9, value=libro.estado)
+            ws.cell(row=row, column=10, value=libro.num_ejemplar)
+            ws.cell(row=row, column=11, value=libro.observaciones or '')
+
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[column_letter].width = min(max_length + 2, 60)
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=catalogo_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        return response
+
+    except Exception as e:
+        messages.error(request, f'Error al exportar catálogo: {str(e)}')
+        return redirect('lista_libros')
+
+
+# Vistas para migraciones de localhost (sqlite) a Postgres estan comentadas porque una vez que se hace no se tiene que volver a hacer.
 # Dejar la url abierta puede ser un peligro porque acceden y te crean superusuario. Se comentan los metodos.
 
 
