@@ -104,6 +104,7 @@ urlpatterns = [
 
     # Exportar excel
     path('exportar-bajas-excel/', views.exportar_bajas_excel, name='exportar_bajas_excel'),
+    path('exportar-catalogo-excel/', views.exportar_catalogo_excel, name='exportar_catalogo_excel'),
 
     # Ver imagenes baja
 
