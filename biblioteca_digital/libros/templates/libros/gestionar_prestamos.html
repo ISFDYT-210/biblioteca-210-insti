@@ -1076,7 +1076,7 @@
                 {% for prestamo in prestamos %}
                 <tr>
                     <td>{{ prestamo.id_prestamo }}</td>
-                    <td>{{ prestamo.libro.titulo }}</td>
+                    <td>{{ prestamo.libro.titulo }} <span style="color:#666; font-size:0.9em;">(Nº inv. {{ prestamo.libro.num_inventario }})</span></td>
                     <td>{{ prestamo.nombre_usuario }}</td>
                     <td>{{ prestamo.get_tipo_prestamo_display }}</td>
                     <td>{{ prestamo.fecha_solicitud|date:"d/m/Y H:i" }}</td>
