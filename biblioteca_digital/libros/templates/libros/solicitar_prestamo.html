@@ -204,26 +204,13 @@
             <p>- Tras solicitar el préstamo, tienes 3 días hábiles para retirar el material de la biblioteca.</p>
         </div>
         
+        <div class="info-box">
+            <p><strong>Solicitando como:</strong> {{ user.get_full_name }} ({{ user.get_perfil_display }})</p>
+            <p><strong>Correo electrónico:</strong> {{ user.email }}</p>
+        </div>
+
         <form class="form-prestamo" method="POST" action="{% url 'solicitar_prestamo' libro.id_libro %}">
             {% csrf_token %}
-            <div class="form-group">
-                <label for="nombre_usuario">Nombre completo:</label>
-                <input type="text" name="nombre_usuario" id="nombre_usuario" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="email_usuario">Correo electrónico:</label>
-                <input type="email" name="email_usuario" id="email_usuario" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="tipo_usuario">Tipo de usuario:</label>
-                <select name="tipo_usuario" id="tipo_usuario" required>
-                    <option value="alumno">Alumno</option>
-                    <option value="profesor">Profesor</option>
-                </select>
-            </div>
-            
             <div class="form-group">
                 <label for="tipo_prestamo">Tipo de préstamo:</label>
                 <select name="tipo_prestamo" id="tipo_prestamo" required>

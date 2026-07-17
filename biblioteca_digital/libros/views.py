@@ -1779,7 +1779,12 @@ def solicitar_prestamo(request, libro_id):
     
     # Crear el préstamo
     if request.method == 'POST':
-        tipo_usuario = request.POST.get('tipo_usuario', 'alumno')
+        # El tipo de usuario se deriva del perfil ya registrado, no se vuelve a pedir
+        perfil_a_tipo_usuario = {
+            'docente': 'profesor',
+            'alumno': 'alumno',
+        }
+        tipo_usuario = perfil_a_tipo_usuario.get(request.user.perfil, 'alumno')
         tipo_prestamo = request.POST.get('tipo_prestamo', 'domicilio')
         
         prestamo = Prestamo(
