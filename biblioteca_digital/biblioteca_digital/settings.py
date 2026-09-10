@@ -22,6 +22,13 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.biblioteca210.com.ar',
 ]
 
+# Vercel actúa como proxy y termina el HTTPS antes de reenviar la petición
+# a la función Python por HTTP interno. Sin esto, Django cree que la
+# conexión es insegura (request.is_secure() = False), arma mal los links
+# de "https://" y falla la verificación de origen del CSRF en producción.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
