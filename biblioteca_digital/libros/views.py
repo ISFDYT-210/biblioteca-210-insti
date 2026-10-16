@@ -200,12 +200,16 @@ def buscar_libros(request):
     if clean_query:
         libros = search_unaccent(
             Libro.objects.filter(estado='Disponible'),
-            ['titulo', 'autor', 'resumen', 'editorial'],
+            ['titulo', 'autor', 'resumen', 'editorial', 'etiqueta_palabra_clave'],
             clean_query
         )
         # También buscar por número de inventario si la query contiene dígitos
         digits_only = ''.join(c for c in clean_query if c.isdigit())
         if digits_only:
+            # Quitar ceros a la izquierda: el número de inventario se guarda
+            # como entero (1, no 001), así que si alguien busca "005" o "01"
+            # hay que compararlo sin los ceros adelante o nunca va a matchear.
+            digits_only = digits_only.lstrip('0') or '0'
             try:
                 from django.db.models.functions import Cast
                 from django.db.models import CharField as DBCharField
