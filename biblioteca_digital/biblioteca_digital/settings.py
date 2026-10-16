@@ -131,9 +131,12 @@ MESSAGE_TAGS = {
 AUTH_USER_MODEL = 'libros.Usuario'
 
 # Configuración de redirección después del login
-LOGIN_URL = '/login/'
+# OJO: todas las URLs de la app viven bajo el prefijo /libros/ (ver
+# biblioteca_digital/urls.py), así que el login real está en
+# /libros/login/, no en /login/ (esa ruta no existe y tira 404).
+LOGIN_URL = '/libros/login/'
 LOGIN_REDIRECT_URL = '/libros/'
-LOGOUT_REDIRECT_URL = '/login/'
+LOGOUT_REDIRECT_URL = '/libros/login/'
 
 # Configuración de email para recuperacion de contraseña
 

@@ -203,7 +203,15 @@ def buscar_libros(request):
             ['titulo', 'autor', 'resumen', 'editorial', 'etiqueta_palabra_clave'],
             clean_query
         )
+        # Resolvemos la búsqueda por texto a un set de ids ANTES de buscar por
+        # número de inventario. Combinar dos querysets con annotate() distintos
+        # usando el operador | puede comportarse mal en PostgreSQL (una de las
+        # dos búsquedas termina pisada/ignorada); trabajar con sets de ids es
+        # simple y funciona igual en SQLite y en PostgreSQL.
+        ids_texto = set(libros.values_list('id_libro', flat=True))
+
         # También buscar por número de inventario si la query contiene dígitos
+        ids_numero = set()
         digits_only = ''.join(c for c in clean_query if c.isdigit())
         if digits_only:
             # Quitar ceros a la izquierda: el número de inventario se guarda
@@ -213,16 +221,22 @@ def buscar_libros(request):
             try:
                 from django.db.models.functions import Cast
                 from django.db.models import CharField as DBCharField
-                libros_num = Libro.objects.filter(estado='Disponible').annotate(
-                    num_inv_str=Cast('num_inventario', output_field=DBCharField())
-                ).filter(num_inv_str__icontains=digits_only)
-                libros = (libros | libros_num).distinct()
-            except Exception:
-                try:
-                    libros_num = Libro.objects.filter(estado='Disponible', num_inventario=int(digits_only))
-                    libros = (libros | libros_num).distinct()
-                except (ValueError, Exception):
-                    pass
+                ids_numero = set(
+                    Libro.objects.filter(estado='Disponible')
+                    .annotate(num_inv_str=Cast('num_inventario', output_field=DBCharField()))
+                    .filter(num_inv_str__icontains=digits_only)
+                    .values_list('id_libro', flat=True)
+                )
+            except Exception as e:
+                logger.warning(f"Error al castear num_inventario para búsqueda: {e}")
+                # Último recurso: comparar en Python, sin depender del motor de DB
+                ids_numero = {
+                    libro.id_libro
+                    for libro in Libro.objects.filter(estado='Disponible').only('id_libro', 'num_inventario')
+                    if digits_only in str(libro.num_inventario)
+                }
+
+        libros = Libro.objects.filter(estado='Disponible', id_libro__in=(ids_texto | ids_numero))
     else:
         libros = Libro.objects.filter(estado='Disponible')
 
