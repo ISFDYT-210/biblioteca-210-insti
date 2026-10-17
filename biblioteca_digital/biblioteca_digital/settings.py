@@ -49,6 +49,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'libros.middleware.NoCacheMiddleware',  # Evita que proxies de red (ej. la facultad) cacheen páginas viejas
 ]
 
 ROOT_URLCONF = 'biblioteca_digital.urls'
